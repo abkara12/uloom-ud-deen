@@ -39,6 +39,20 @@ function getMonthLabel(dateKey?: string) {
 }
 
 function diffDaysInclusive(startKey: string, endKey: string) {
+  function getDayName(dateKey?: string) {
+  if (!dateKey) return "";
+  const d = parseDateKey(dateKey);
+  return d.toLocaleDateString("en-US", { weekday: "short" });
+}
+
+function getMonthLabel(dateKey?: string) {
+  if (!dateKey) return "";
+  const d = parseDateKey(dateKey);
+  return d.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+}
   const a = parseDateKey(startKey);
   const b = parseDateKey(endKey);
   const ms = b.getTime() - a.getTime();
