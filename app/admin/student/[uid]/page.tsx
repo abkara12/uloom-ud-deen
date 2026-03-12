@@ -243,7 +243,6 @@ const [studentName, setStudentName] = useState("");
   }, []);
 
   useEffect(() => {
-  resetFields();
 
   async function loadStudent() {
     const sDoc = await getDoc(doc(db, "users", studentUid));
@@ -294,6 +293,12 @@ setStudentName(name);
     if (studentUid) loadStudent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentUid, dateKey]);
+
+    useEffect(() => {
+  resetFields();
+  setMarkGoalCompleted(false);
+  setMsg(null);
+}, [studentUid]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
