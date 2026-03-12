@@ -243,8 +243,10 @@ const [studentName, setStudentName] = useState("");
   }, []);
 
   useEffect(() => {
-    async function loadStudent() {
-      const sDoc = await getDoc(doc(db, "users", studentUid));
+  resetFields();
+
+  async function loadStudent() {
+    const sDoc = await getDoc(doc(db, "users", studentUid));
       if (sDoc.exists()) {
         const data = sDoc.data() as any;
 
