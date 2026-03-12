@@ -193,6 +193,23 @@ const [studentName, setStudentName] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+      function resetFields() {
+  setSabak("");
+  setSabakDhor("");
+  setDhor("");
+
+  setSabakReadQuality("");
+  setSabakReadNotes("");
+
+  setSabakDhorReadQuality("");
+  setSabakDhorReadNotes("");
+
+  setDhorReadQuality("");
+  setDhorReadNotes("");
+
+  setSabakDhorMistakes("");
+  setDhorMistakes("");
+}
   const dateKey = useMemo(() => getDateKeySA(), []);
   const currentWeekKey = useMemo(() => isoWeekKeyFromDateKey(dateKey), [dateKey]);
 
@@ -409,7 +426,9 @@ setStudentName(
       setWeeklyGoalDurationDays(nextDuration ?? null);
 
       setMsg("Saved ✅");
-      setTimeout(() => setMsg(null), 2500);
+setTimeout(() => setMsg(null), 2500);
+
+resetFields();
     } catch (err: any) {
       setMsg(err?.message ? `Error: ${err.message}` : "Error saving.");
     } finally {
