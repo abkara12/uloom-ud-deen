@@ -296,137 +296,136 @@ const [studentName, setStudentName] = useState("");
 }, [studentUid, dateKey]);
 
   
+async function handleSave(e: React.FormEvent) {
+  e.preventDefault();
+  if (!isAdmin) return;
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    if (!isAdmin) return;
+  setSaving(true);
+  setMsg(null);
 
-    setSaving(true);
-    setMsg(null);
+  try {
+    // ---- Weekly goal meta updates ----
+    let nextGoal = weeklyGoal.trim();
+    let nextWeekKey = weeklyGoalWeekKey;
+    let nextStartKey = weeklyGoalStartDateKey;
+    let nextCompletedKey = weeklyGoalCompletedDateKey;
 
-    try {
-      // ---- Weekly goal meta updates ----
-      let nextGoal = weeklyGoal.trim();
-      let nextWeekKey = weeklyGoalWeekKey;
-      let nextStartKey = weeklyGoalStartDateKey;
-      let nextCompletedKey = weeklyGoalCompletedDateKey;
-      let nextDuration = weeklyGoalDurationDays;
+    // Compute duration safely
+    let nextDuration: number | null = weeklyGoalDurationDays ?? null;
 
-      if (nextGoal) {
-        const isNewWeekGoal = !nextWeekKey || nextWeekKey !== currentWeekKey;
-        if (isNewWeekGoal) {
-          nextWeekKey = currentWeekKey;
-          nextStartKey = dateKey;
-          nextCompletedKey = "";
-          nextDuration = null;
-          setMarkGoalCompleted(false);
-        }
-
-        if (markGoalCompleted && !nextCompletedKey) {
-          const startKey = nextStartKey || dateKey;
-          nextCompletedKey = dateKey;
-          nextDuration = diffDaysInclusive(startKey, dateKey);
-        }
+    if (nextGoal) {
+      const isNewWeekGoal = !nextWeekKey || nextWeekKey !== currentWeekKey;
+      if (isNewWeekGoal) {
+        nextWeekKey = currentWeekKey;
+        nextStartKey = dateKey;
+        nextCompletedKey = "";
+        nextDuration = null;
+        setMarkGoalCompleted(false);
       }
 
-      // ---- 1) Daily log doc ----
-      await setDoc(
-        doc(db, "users", studentUid, "logs", dateKey),
-        {
-          dateKey,
-          createdAt: serverTimestamp(),
-
-          sabak,
-          sabakDhor,
-          dhor,
-
-          // ✅ Save the EXACT field names the student table expects
-          sabakRead: sabakReadQuality,
-          sabakDhorRead: sabakDhorReadQuality,
-          dhorRead: dhorReadQuality,
-
-          // ✅ Keep your existing "Quality" keys too (backwards/for future)
-          sabakReadQuality,
-          sabakDhorReadQuality,
-          dhorReadQuality,
-
-          // notes
-          sabakReadNotes,
-          sabakDhorReadNotes,
-          dhorReadNotes,
-
-          sabakDhorMistakes,
-          dhorMistakes,
-
-          weeklyGoal: nextGoal,
-          weeklyGoalWeekKey: nextWeekKey || null,
-          weeklyGoalStartDateKey: nextStartKey || null,
-          weeklyGoalCompletedDateKey: nextCompletedKey || null,
-          weeklyGoalDurationDays: nextDuration ?? null,
-          weeklyGoalCompleted: Boolean(nextCompletedKey),
-
-          updatedBy: me?.uid ?? null,
-          updatedByEmail: me?.email ?? null,
-        },
-        { merge: true }
-      );
-
-      // ---- 2) User snapshot doc ----
-      await setDoc(
-        doc(db, "users", studentUid),
-        {
-          weeklyGoal: nextGoal,
-          weeklyGoalWeekKey: nextWeekKey || null,
-          weeklyGoalStartDateKey: nextStartKey || null,
-          weeklyGoalCompletedDateKey: nextCompletedKey || null,
-          weeklyGoalDurationDays: nextDuration ?? null,
-
-          // currentSabak: sabak,
-          // currentSabakDhor: sabakDhor,
-          // currentDhor: dhor,
-
-          // ✅ Save snapshot in BOTH naming styles too
-          // currentSabakRead: sabakReadQuality,
-          // currentSabakDhorRead: sabakDhorReadQuality,
-          // currentDhorRead: dhorReadQuality,
-
-          // currentSabakReadQuality: sabakReadQuality,
-          // currentSabakDhorReadQuality: sabakDhorReadQuality,
-          // currentDhorReadQuality: dhorReadQuality,
-
-          // currentSabakReadNotes: sabakReadNotes,
-          // currentSabakDhorReadNotes: sabakDhorReadNotes,
-          // currentDhorReadNotes: dhorReadNotes,
-
-          // currentSabakDhorMistakes: sabakDhorMistakes,
-          // currentDhorMistakes: dhorMistakes,
-
-          updatedAt: serverTimestamp(),
-          lastUpdatedBy: me?.uid ?? null,
-        },
-        { merge: true }
-      );
-
-      // update local state so UI reflects instantly
-      setWeeklyGoal(nextGoal);
-      setWeeklyGoalWeekKey(nextWeekKey || "");
-      setWeeklyGoalStartDateKey(nextStartKey || "");
-      setWeeklyGoalCompletedDateKey(nextCompletedKey || "");
-      setWeeklyGoalDurationDays(nextDuration ?? null);
-
-      setMsg("Saved ✅");
-setTimeout(() => setMsg(null), 2500);
-
-resetFields();
-setMarkGoalCompleted(false);
-
-resetFields();
-    } catch (err: any) {
-      setMsg(err?.message ? `Error: ${err.message}` : "Error saving.");
-    } finally {
-      setSaving(false);
+      if (markGoalCompleted && !nextCompletedKey) {
+        const startKey = nextStartKey || dateKey;
+        nextCompletedKey = dateKey;
+        nextDuration = diffDaysInclusive(startKey, dateKey); // ✅ call the function, don’t pass it
+      }
     }
+
+    // ---- 1) Save daily log ----
+    await setDoc(
+      doc(db, "users", studentUid, "logs", dateKey),
+      {
+        dateKey,
+        createdAt: serverTimestamp(),
+
+        // Daily fields
+        sabak,
+        sabakDhor,
+        dhor,
+
+        // Reading quality
+        sabakRead: sabakReadQuality,
+        sabakDhorRead: sabakDhorReadQuality,
+        dhorRead: dhorReadQuality,
+
+        sabakReadQuality,
+        sabakDhorReadQuality,
+        dhorReadQuality,
+
+        sabakReadNotes,
+        sabakDhorReadNotes,
+        dhorReadNotes,
+
+        // Mistakes
+        sabakDhorMistakes,
+        dhorMistakes,
+
+        // Weekly goal meta
+        weeklyGoal: nextGoal,
+        weeklyGoalWeekKey: nextWeekKey || null,
+        weeklyGoalStartDateKey: nextStartKey || null,
+        weeklyGoalCompletedDateKey: nextCompletedKey || null,
+        weeklyGoalDurationDays: nextDuration,
+        weeklyGoalCompleted: Boolean(nextCompletedKey),
+
+        // Updated by
+        updatedBy: me?.uid ?? null,
+        updatedByEmail: me?.email ?? null,
+      },
+      { merge: true }
+    );
+
+    // ---- 2) Save student snapshot ----
+    await setDoc(
+      doc(db, "users", studentUid),
+      {
+        weeklyGoal: nextGoal,
+        weeklyGoalWeekKey: nextWeekKey || null,
+        weeklyGoalStartDateKey: nextStartKey || null,
+        weeklyGoalCompletedDateKey: nextCompletedKey || null,
+        weeklyGoalDurationDays: nextDuration,
+
+        // Current snapshot of daily work
+        currentSabak: sabak,
+        currentSabakDhor: sabakDhor,
+        currentDhor: dhor,
+
+        currentSabakReadQuality: sabakReadQuality,
+        currentSabakDhorReadQuality: sabakDhorReadQuality,
+        currentDhorReadQuality: dhorReadQuality,
+
+        currentSabakReadNotes: sabakReadNotes,
+        currentSabakDhorReadNotes: sabakDhorReadNotes,
+        currentDhorReadNotes: dhorReadNotes,
+
+        currentSabakDhorMistakes: sabakDhorMistakes,
+        currentDhorMistakes: dhorMistakes,
+
+        updatedAt: serverTimestamp(),
+        lastUpdatedBy: me?.uid ?? null,
+      },
+      { merge: true }
+    );
+
+    // ---- Update local state ----
+    setWeeklyGoal(nextGoal);
+    setWeeklyGoalWeekKey(nextWeekKey || "");
+    setWeeklyGoalStartDateKey(nextStartKey || "");
+    setWeeklyGoalCompletedDateKey(nextCompletedKey || "");
+    setWeeklyGoalDurationDays(nextDuration);
+
+    setMsg("Saved ✅");
+    setTimeout(() => setMsg(null), 2500);
+
+    // Clear fields after saving
+    resetFields();
+    setMarkGoalCompleted(false);
+
+  } catch (err: any) {
+    setMsg(err?.message ? `Error: ${err.message}` : "Error saving.");
+  } finally {
+    setSaving(false);
   }
+}
   
   if (checking) {
     return (
