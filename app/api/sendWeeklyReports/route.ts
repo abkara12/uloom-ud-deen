@@ -1,7 +1,6 @@
-// /app/api/sendWeeklyReports/route.ts
 import admin from "firebase-admin";
+import Twilio from "twilio";
 
-// Initialize Admin SDK
 const projectId = process.env.FIREBASE_PROJECT_ID;
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
@@ -17,6 +16,8 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
+
+const twilioClient = Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 export async function GET() {
   try {
@@ -37,7 +38,6 @@ export async function GET() {
         .orderBy("createdAt", "desc")
         .get();
 
-      // Filter logs for last 7 days
       const recentLogs = logsSnapshot.docs.filter((logDoc) => {
         const logData = logDoc.data();
         const createdAt = logData.createdAt;
@@ -51,7 +51,6 @@ export async function GET() {
       if (recentLogs.length > 0) {
         recentLogs.forEach((logDoc) => {
           const logData = logDoc.data();
-
           reportText += `Log Date: ${logData.createdAt?.toDate ? logData.createdAt.toDate().toLocaleString() : logData.createdAt}\n`;
           reportText += `Dhor: ${logData.dhor ?? "-"}\n`;
           reportText += `Dhor Mistakes: ${logData.dhorMistakes ?? "-"}\n`;
@@ -82,9 +81,18 @@ export async function GET() {
         parentPhone: userData.parentPhone,
         report: reportText.trim(),
       });
+
+      // ----------------- Send WhatsApp -----------------
+      if (userData.parentPhone) {
+        await twilioClient.messages.create({
+          from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
+          to: `whatsapp:${userData.parentPhone}`,
+          body: reportText.trim(),
+        });
+      }
     }
 
-    return new Response(JSON.stringify({ reports }), {
+    return new Response(JSON.stringify({ reports, sent: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
