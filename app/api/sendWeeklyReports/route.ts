@@ -34,7 +34,6 @@ export async function GET() {
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
 
-      // Get all logs for this user
       const logsSnapshot = await db
         .collection("users")
         .doc(userDoc.id)
@@ -42,7 +41,6 @@ export async function GET() {
         .orderBy("createdAt", "desc")
         .get();
 
-      // Filter logs from the last 7 days
       const recentLogs = logsSnapshot.docs.filter((logDoc) => {
         const logData = logDoc.data();
         const createdAt = logData.createdAt?.toDate?.();
@@ -50,13 +48,30 @@ export async function GET() {
       });
 
       if (recentLogs.length > 0) {
-        // Generate a simple report (you can expand with log details)
-        const reportText = `Assalaamu Alaikum\n\nWeekly Hifdh Report\nStudent: ${userData.username}\n\n📅 ${new Date().toLocaleDateString()}\n`;
+        // Create detailed report text
+        const reportLines = recentLogs.map((log) => {
+          const logData = log.data();
+          return `
+Current Dhor: ${logData.currentDhor || "-"} (${logData.currentDhorMistakes || "0"} mistakes, ${logData.currentDhorReadQuality || "-"})
+Dhor Notes: ${logData.currentDhorReadNotes || "-"}
+Current Sabak: ${logData.currentSabak || "-"} (${logData.currentSabakDhorMistakes || "0"} mistakes, ${logData.currentSabakReadQuality || "-"})
+Sabak Notes: ${logData.currentSabakReadNotes || "-"}
+`;
+        }).join("\n");
+
+        const reportText = `Assalaamu Alaikum
+
+Weekly Hifdh Report
+Student: ${userData.username}
+
+📅 ${new Date().toLocaleDateString()}
+
+${reportLines}`;
 
         reports.push({
           student: userData.username,
           parentPhone: userData.parentPhone,
-          report: reportText,
+          report: reportText.trim(),
         });
       }
     }
