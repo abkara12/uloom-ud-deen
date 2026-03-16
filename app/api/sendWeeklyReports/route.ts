@@ -17,7 +17,10 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-const twilioClient = Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+const twilioClient = Twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
 
 export async function GET() {
   try {
@@ -30,7 +33,6 @@ export async function GET() {
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
 
-      // Get logs subcollection
       const logsSnapshot = await db
         .collection("users")
         .doc(userDoc.id)
@@ -46,34 +48,55 @@ export async function GET() {
         return logDate >= sevenDaysAgo;
       });
 
-      let reportText = `Assalaamu Alaikum\n\nWeekly Hifdh Report\nStudent: ${userData.username}\n📅 ${new Date().toLocaleDateString()}\n\n`;
+      let reportText = `السلام عليكم ورحمة الله وبركاته
+
+📖 Weekly Hifdh Report
+Student: ${userData.username}
+
+`;
 
       if (recentLogs.length > 0) {
         recentLogs.forEach((logDoc) => {
           const logData = logDoc.data();
-          reportText += `Log Date: ${logData.createdAt?.toDate ? logData.createdAt.toDate().toLocaleString() : logData.createdAt}\n`;
-          reportText += `Dhor: ${logData.dhor ?? "-"}\n`;
-          reportText += `Dhor Mistakes: ${logData.dhorMistakes ?? "-"}\n`;
-          reportText += `Dhor Read Notes: ${logData.dhorReadNotes ?? "-"}\n`;
-          reportText += `Dhor Read Quality: ${logData.dhorReadQuality ?? "-"}\n`;
-          reportText += `Sabak: ${logData.sabak ?? "-"}\n`;
-          reportText += `Sabak Dhor: ${logData.sabakDhor ?? "-"}\n`;
-          reportText += `Sabak Dhor Mistakes: ${logData.sabakDhorMistakes ?? "-"}\n`;
-          reportText += `Sabak Dhor Read Notes: ${logData.sabakDhorReadNotes ?? "-"}\n`;
-          reportText += `Sabak Dhor Read Quality: ${logData.sabakDhorReadQuality ?? "-"}\n`;
-          reportText += `Sabak Read Notes: ${logData.sabakReadNotes ?? "-"}\n`;
-          reportText += `Sabak Read Quality: ${logData.sabakReadQuality ?? "-"}\n\n`;
 
-          // Weekly goal info from the log
-          reportText += `Weekly Goal: ${logData.weeklyGoal ?? "-"}\n`;
-          reportText += `Goal Start Date: ${logData.weeklyGoalStartDateKey ?? "-"}\n`;
-          reportText += `Goal Week Key: ${logData.weeklyGoalWeekKey ?? "-"}\n`;
-          reportText += `Goal Completed: ${logData.weeklyGoalCompleted ?? "-"}\n`;
-          reportText += `Goal Completed Date: ${logData.weeklyGoalCompletedDateKey ?? "-"}\n`;
-          reportText += `Goal Duration (days): ${logData.weeklyGoalDurationDays ?? "-"}\n\n`;
+          const dateObj = logData.createdAt?.toDate
+            ? logData.createdAt.toDate()
+            : new Date();
+
+          const dayName = dateObj.toLocaleDateString("en-US", {
+            weekday: "short",
+          });
+
+          const dateString = dateObj.toISOString().split("T")[0];
+
+          reportText += `${dayName} ${dateString}
+
+Sabak: ${logData.sabak ?? "-"} | ${logData.sabakReadQuality ?? "-"}
+Note: ${logData.sabakReadNotes ?? "-"}
+
+Sabak Dhor: ${logData.sabakDhor ?? "-"} | ${logData.sabakDhorReadQuality ?? "-"}
+Note: ${logData.sabakDhorReadNotes ?? "-"}
+
+Dhor: ${logData.dhor ?? "-"} | ${logData.dhorReadQuality ?? "-"}
+Note: ${logData.dhorReadNotes ?? "-"}
+
+Mistakes: Sabak Dhor ${logData.sabakDhorMistakes ?? "0"} | Dhor ${
+            logData.dhorMistakes ?? "0"
+          }
+
+`;
         });
+
+        const latestLog = recentLogs[0].data();
+
+        reportText += `🎯 Weekly Goal: ${latestLog.weeklyGoal ?? "-"}
+📊 Goal Status: ${
+          latestLog.weeklyGoalCompleted ? "Completed" : "In Progress"
+        }
+Duration: ${latestLog.weeklyGoalDurationDays ?? "-"}
+`;
       } else {
-        reportText += `No logs for the last 7 days.\n`;
+        reportText += `No logs recorded for the last 7 days.`;
       }
 
       reports.push({
@@ -82,7 +105,6 @@ export async function GET() {
         report: reportText.trim(),
       });
 
-      // ----------------- Send WhatsApp -----------------
       if (userData.parentPhone) {
         await twilioClient.messages.create({
           from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
