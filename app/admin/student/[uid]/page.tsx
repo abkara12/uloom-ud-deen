@@ -154,6 +154,9 @@ export default function AdminStudentPage() {
   const params = useParams<{ uid: string }>();
   const studentUid = params.uid;
 
+
+  const [attendance, setAttendance] = useState<"present" | "absent">("present");
+
   const [me, setMe] = useState<User | null>(null);
   const [checking, setChecking] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -337,6 +340,8 @@ async function handleSave(e: React.FormEvent) {
         dateKey,
         createdAt: serverTimestamp(),
 
+        attendance,
+
         // Daily fields
         sabak,
         sabakDhor,
@@ -518,6 +523,37 @@ async function handleSave(e: React.FormEvent) {
         </div>
 
         <form onSubmit={handleSave} className="mt-6 grid gap-5">
+
+        {/* Attendance */}
+<div className="rounded-3xl border border-gray-300 bg-white/70 backdrop-blur-xl p-5 sm:p-6">
+  <div className="text-sm font-semibold text-gray-900">Attendance</div>
+
+  <div className="mt-4 flex gap-3">
+    <button
+      type="button"
+      onClick={() => setAttendance("present")}
+      className={`px-4 py-2 rounded-xl border ${
+        attendance === "present"
+          ? "bg-emerald-100 border-emerald-400 text-emerald-700"
+          : "bg-white border-gray-300"
+      }`}
+    >
+      Present
+    </button>
+
+    <button
+      type="button"
+      onClick={() => setAttendance("absent")}
+      className={`px-4 py-2 rounded-xl border ${
+        attendance === "absent"
+          ? "bg-red-100 border-red-400 text-red-700"
+          : "bg-white border-gray-300"
+      }`}
+    >
+      Absent
+    </button>
+  </div>
+</div>
           {/* Sabak */}
           <div className="rounded-3xl border border-gray-300 bg-white/70 backdrop-blur-xl p-5 sm:p-6">
             <div className="text-sm font-semibold text-gray-900">Sabak</div>

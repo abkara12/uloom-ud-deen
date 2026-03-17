@@ -51,6 +51,8 @@ function getMonthLabel(dateKey?: string) {
 type LogRow = {
   id: string;
    dateKey?: string;
+
+   attendance?: string;
  
    sabak?: string;
    sabakRead?: string;
@@ -112,6 +114,23 @@ export default function OverviewPage() {
     });
     return () => unsub();
   }, []);
+
+
+    const absentsByMonth = useMemo(() => {
+  const map: Record<string, number> = {};
+
+  rows.forEach((r) => {
+    if (r.attendance !== "absent") return;
+
+    const month = getMonthLabel(r.dateKey);
+    if (!month) return;
+
+    map[month] = (map[month] || 0) + 1;
+  });
+
+  return map;
+}, [rows]);
+
 
   const summary = useMemo(() => {
     if (!rows.length) return { totalDays: 0, avgSabak: 0, lastGoal: 0 };
@@ -247,6 +266,9 @@ export default function OverviewPage() {
                       <th className="sticky top-0 bg-white/70 backdrop-blur-xl backdrop-blur pb-3 pr-4 pl-2 border-b border-gray-300">
                         Date
                       </th>
+                      <th className="sticky top-0 bg-white/70 backdrop-blur-xl backdrop-blur pb-3 pr-4 pl-2 border-b border-gray-300">
+                        Attendance
+                      </th>
 
                       <th className="sticky top-0 bg-white/70 backdrop-blur-xl backdrop-blur pb-3 px-4 border-b border-gray-300 border-l border-gray-100">
                         Sabak
@@ -344,7 +366,15 @@ export default function OverviewPage() {
                           <td className="py-4 pr-4 pl-2 font-medium text-gray-900">
                             {r.dateKey ?? r.id}
                           </td>
-
+                                                    <td className="py-4 px-4 border-l border-gray-100">
+                            {r.attendance === "present" ? (
+                              <span className="text-emerald-600 font-semibold">Present</span>
+                            ) : r.attendance === "absent" ? (
+                              <span className="text-red-600 font-semibold">Absent</span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
                           <td className="py-4 px-4 text-gray-800 border-l border-gray-100">
                             {toText(r.sabak) || "—"}
                           </td>

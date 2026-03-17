@@ -64,6 +64,8 @@ type LogRow = {
   id: string;
   dateKey?: string;
 
+  attendance?: string;
+
   sabak?: string;
   sabakRead?: string;
   sabakReadNotes?: string;
@@ -160,6 +162,21 @@ setStudentName(
       loadLogs();
     }
   }, [studentUid]);
+
+  const absentsByMonth = useMemo(() => {
+  const map: Record<string, number> = {};
+
+  rows.forEach((r) => {
+    if (r.attendance !== "absent") return;
+
+    const month = getMonthLabel(r.dateKey);
+    if (!month) return;
+
+    map[month] = (map[month] || 0) + 1;
+  });
+
+  return map;
+}, [rows]);
 
   const summary = useMemo(() => {
     if (!rows.length) return { totalDays: 0, avgSabak: 0, lastGoal: 0 };
@@ -281,6 +298,17 @@ setStudentName(
           <StatCard label="Latest weekly goal" value={summary.lastGoal ? String(summary.lastGoal) : "—"} />
         </div>
 
+                <div className="mb-6 flex flex-wrap gap-3">
+          {Object.entries(absentsByMonth).map(([month, count]) => (
+            <div
+              key={month}
+              className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700"
+            >
+              {month}: {count} absent day(s)
+            </div>
+          ))}
+        </div>
+
         <div className="rounded-3xl border border-gray-300 bg-white/70 backdrop-blur shadow-sm overflow-hidden">
           <div className="p-6 sm:p-8 border-b border-gray-300 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -321,6 +349,9 @@ setStudentName(
                       </th>
                       <th className="sticky top-0 bg-white/70 backdrop-blur-xl backdrop-blur pb-3 pr-4 pl-2 border-b border-gray-300">
                         Date
+                      </th>
+                       <th className="sticky top-0 bg-white/70 backdrop-blur-xl backdrop-blur pb-3 pr-4 pl-2 border-b border-gray-300">
+                        Attendance
                       </th>
 
                       <th className="sticky top-0 bg-white/70 backdrop-blur-xl backdrop-blur pb-3 px-4 border-b border-gray-300 border-l border-gray-100">
@@ -416,6 +447,16 @@ setStudentName(
                         </td>
                           <td className="py-4 pr-4 pl-2 font-medium text-gray-900">
                             {r.dateKey ?? r.id}
+                          </td>
+
+                            <td className="py-4 px-4 border-l border-gray-100">
+                            {r.attendance === "present" ? (
+                              <span className="text-emerald-600 font-semibold">Present</span>
+                            ) : r.attendance === "absent" ? (
+                              <span className="text-red-600 font-semibold">Absent</span>
+                            ) : (
+                              "—"
+                            )}
                           </td>
 
                           <td className="py-4 px-4 text-gray-800 border-l border-gray-100">
