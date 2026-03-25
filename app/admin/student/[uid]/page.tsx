@@ -330,10 +330,12 @@ if (nextGoal && !nextStartKey) {
   nextStartKey = dateKey;
 }
 
-if (markGoalCompleted && !nextCompletedKey) {
-  const startKey = nextStartKey || dateKey;
-  nextCompletedKey = dateKey;
-  nextDuration = diffDaysInclusive(startKey, dateKey);
+// ✅ Only allow setting a new weekly goal if previous goal is completed
+if (nextGoal && weeklyGoalCompletedDateKey && !markGoalCompleted) {
+  // Previous goal is completed, allow new goal
+  nextStartKey = dateKey;
+  nextCompletedKey = "";
+  nextDuration = null;
 }
 
       if (markGoalCompleted && !nextCompletedKey) {
