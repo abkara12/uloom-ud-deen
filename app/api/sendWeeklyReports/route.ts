@@ -15,6 +15,7 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
+// ...your imports and Firebase setup stay the same
 
 export async function GET() {
   try {
@@ -75,7 +76,7 @@ Dhor: ${logData.dhor ?? "-"} | ${logData.dhorReadQuality ?? "-"}${logData.dhorRe
 
 Mistakes: Sabak Dhor ${logData.sabakDhorMistakes ?? "0"} | Dhor ${logData.dhorMistakes ?? "0"}
 
-${index !== recentLogs.length - 1 ? "──────────\n\n" : ""}
+${index !== recentLogs.length - 1 ? "────────────────\n\n" : ""}
 `;
         });
 
@@ -98,15 +99,16 @@ Powered by The Hifdh Journal`;
       reports.push({ student: userData.username, report: reportText });
     }
 
-    // HTML with copy buttons
     const html = `
 <html>
 <head>
+<meta charset="UTF-8">
 <title>Weekly Hifdh Reports</title>
 <style>
 body { font-family: monospace; background: #f9f9f9; padding: 20px; }
 .report-box { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
 button { margin-top: 10px; padding: 5px 10px; cursor: pointer; }
+pre { white-space: pre-wrap; word-wrap: break-word; }
 </style>
 </head>
 <body>
@@ -134,7 +136,7 @@ function copyReport(idx) {
 </html>
 `;
 
-    return new Response(html, { status: 200, headers: { "Content-Type": "text/html" } });
+    return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=UTF-8" } });
   } catch (err) {
     console.error(err);
     return new Response(`<html><body>Server error</body></html>`, {
