@@ -33,6 +33,9 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const [parentName, setParentName] = useState("");
+  const [parentPhone, setParentPhone] = useState("");
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
@@ -48,6 +51,10 @@ export default function SignupPage() {
   {
     email: (cred.user.email ?? cleanEmail).toLowerCase(),
     username: username.trim(),
+
+    parentName: parentName.trim(),
+    parentPhone: parentPhone.trim(),
+
     role: "student",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -166,6 +173,34 @@ export default function SignupPage() {
                 />
                 </div>
                 <div>
+
+                                <div>
+                  <label className="text-sm font-medium text-gray-800">
+                    Parent's Name
+                  </label>
+                  <input
+                    value={parentName}
+                    onChange={(e) => setParentName(e.target.value)}
+                    type="text"
+                    required
+                    placeholder="e.g. Ahmed Khan"
+                    className="mt-2 w-full h-12 rounded-2xl border border-gray-300 bg-white/80 px-4 outline-none focus:ring-2 focus:ring-[#B8963D]/40"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-800">
+                    Parent's Phone Number
+                  </label>
+                  <input
+                    value={parentPhone}
+                    onChange={(e) => setParentPhone(e.target.value)}
+                    type="tel"
+                    required
+                    placeholder="e.g. 082 123 4567"
+                    className="mt-2 w-full h-12 rounded-2xl border border-gray-300 bg-white/80 px-4 outline-none focus:ring-2 focus:ring-[#B8963D]/40"
+                  />
+                </div>
                   <label className="text-sm font-medium text-gray-800">Email</label>
                   <input
                     value={email}
