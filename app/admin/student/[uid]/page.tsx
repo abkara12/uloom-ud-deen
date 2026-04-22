@@ -405,6 +405,11 @@ export default function AdminStudentPage() {
           ? dhorMistakes
           : toText(existingLog.dhorMistakes || existingUser.currentDhorMistakes);
 
+      const isDayComplete =
+        finalSabak.trim() !== "" &&
+        finalSabakDhor.trim() !== "" &&
+        finalDhor.trim() !== "";
+
       let nextGoal = weeklyGoal.trim();
       let nextWeekKey = weeklyGoalWeekKey;
       let nextStartKey = weeklyGoalStartDateKey;
@@ -479,24 +484,24 @@ export default function AdminStudentPage() {
           weeklyGoalCompletedDateKey: nextCompletedKey || null,
           weeklyGoalDurationDays: nextDuration,
 
-          currentSabak: finalSabak,
-          currentSabakDhor: finalSabakDhor,
-          currentDhor: finalDhor,
+          currentSabak: isDayComplete ? "" : finalSabak,
+          currentSabakDhor: isDayComplete ? "" : finalSabakDhor,
+          currentDhor: isDayComplete ? "" : finalDhor,
 
-          currentSabakRead: finalSabakReadQuality,
-          currentSabakDhorRead: finalSabakDhorReadQuality,
-          currentDhorRead: finalDhorReadQuality,
+          currentSabakRead: isDayComplete ? "" : finalSabakReadQuality,
+          currentSabakDhorRead: isDayComplete ? "" : finalSabakDhorReadQuality,
+          currentDhorRead: isDayComplete ? "" : finalDhorReadQuality,
 
-          currentSabakReadQuality: finalSabakReadQuality,
-          currentSabakDhorReadQuality: finalSabakDhorReadQuality,
-          currentDhorReadQuality: finalDhorReadQuality,
+          currentSabakReadQuality: isDayComplete ? "" : finalSabakReadQuality,
+          currentSabakDhorReadQuality: isDayComplete ? "" : finalSabakDhorReadQuality,
+          currentDhorReadQuality: isDayComplete ? "" : finalDhorReadQuality,
 
-          currentSabakReadNotes: finalSabakReadNotes,
-          currentSabakDhorReadNotes: finalSabakDhorReadNotes,
-          currentDhorReadNotes: finalDhorReadNotes,
+          currentSabakReadNotes: isDayComplete ? "" : finalSabakReadNotes,
+          currentSabakDhorReadNotes: isDayComplete ? "" : finalSabakDhorReadNotes,
+          currentDhorReadNotes: isDayComplete ? "" : finalDhorReadNotes,
 
-          currentSabakDhorMistakes: finalSabakDhorMistakes,
-          currentDhorMistakes: finalDhorMistakes,
+          currentSabakDhorMistakes: isDayComplete ? "" : finalSabakDhorMistakes,
+          currentDhorMistakes: isDayComplete ? "" : finalDhorMistakes,
 
           updatedAt: serverTimestamp(),
           lastUpdatedBy: me?.uid ?? null,
@@ -527,7 +532,7 @@ export default function AdminStudentPage() {
       setWeeklyGoalCompletedDateKey(nextCompletedKey || "");
       setWeeklyGoalDurationDays(nextDuration);
 
-      setMsg("Saved ✅");
+      setMsg(isDayComplete ? "Saved ✅ Day completed — next day will start fresh" : "Saved ✅");
       setTimeout(() => setMsg(null), 2500);
 
       setMarkGoalCompleted(false);
