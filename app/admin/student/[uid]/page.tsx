@@ -249,28 +249,6 @@ export default function AdminStudentPage() {
         setWeeklyGoalDurationDays(
           typeof dur === "number" ? dur : dur ? Number(dur) : null
         );
-
-        setSabak(toText(data.currentSabak));
-        setSabakDhor(toText(data.currentSabakDhor));
-        setDhor(toText(data.currentDhor));
-
-        setSabakReadQuality(
-          pickText(data.currentSabakRead, data.currentSabakReadQuality)
-        );
-        setSabakReadNotes(toText(data.currentSabakReadNotes));
-
-        setSabakDhorReadQuality(
-          pickText(data.currentSabakDhorRead, data.currentSabakDhorReadQuality)
-        );
-        setSabakDhorReadNotes(toText(data.currentSabakDhorReadNotes));
-
-        setDhorReadQuality(
-          pickText(data.currentDhorRead, data.currentDhorReadQuality)
-        );
-        setDhorReadNotes(toText(data.currentDhorReadNotes));
-
-        setSabakDhorMistakes(toText(data.currentSabakDhorMistakes));
-        setDhorMistakes(toText(data.currentDhorMistakes));
       }
 
       if (logDoc.exists()) {
@@ -295,6 +273,24 @@ export default function AdminStudentPage() {
 
         setSabakDhorMistakes(toText(log.sabakDhorMistakes));
         setDhorMistakes(toText(log.dhorMistakes));
+      } else {
+        setAttendance("present");
+
+        setSabak("");
+        setSabakDhor("");
+        setDhor("");
+
+        setSabakReadQuality("");
+        setSabakReadNotes("");
+
+        setSabakDhorReadQuality("");
+        setSabakDhorReadNotes("");
+
+        setDhorReadQuality("");
+        setDhorReadNotes("");
+
+        setSabakDhorMistakes("");
+        setDhorMistakes("");
       }
     }
 
@@ -312,103 +308,29 @@ export default function AdminStudentPage() {
       const userRef = doc(db, "users", studentUid);
       const logRef = doc(db, "users", studentUid, "logs", dateKey);
 
-      const [existingUserSnap, existingLogSnap] = await Promise.all([
-        getDoc(userRef),
-        getDoc(logRef),
-      ]);
-
-      const existingUser = existingUserSnap.exists()
-        ? (existingUserSnap.data() as any)
-        : {};
+      const [existingLogSnap] = await Promise.all([getDoc(logRef)]);
 
       const existingLog = existingLogSnap.exists()
         ? (existingLogSnap.data() as any)
         : {};
 
-      const finalAttendance = attendance || existingLog.attendance || "present";
+      const finalAttendance = attendance || "present";
 
-      const finalSabak =
-        sabak.trim() !== ""
-          ? sabak
-          : toText(existingLog.sabak || existingUser.currentSabak);
+      const finalSabak = sabak;
+      const finalSabakDhor = sabakDhor;
+      const finalDhor = dhor;
 
-      const finalSabakDhor =
-        sabakDhor.trim() !== ""
-          ? sabakDhor
-          : toText(existingLog.sabakDhor || existingUser.currentSabakDhor);
+      const finalSabakReadQuality = sabakReadQuality;
+      const finalSabakReadNotes = sabakReadNotes;
 
-      const finalDhor =
-        dhor.trim() !== ""
-          ? dhor
-          : toText(existingLog.dhor || existingUser.currentDhor);
+      const finalSabakDhorReadQuality = sabakDhorReadQuality;
+      const finalSabakDhorReadNotes = sabakDhorReadNotes;
 
-      const finalSabakReadQuality =
-        sabakReadQuality.trim() !== ""
-          ? sabakReadQuality
-          : pickText(
-              existingLog.sabakRead,
-              existingLog.sabakReadQuality ||
-                existingUser.currentSabakRead ||
-                existingUser.currentSabakReadQuality
-            );
+      const finalDhorReadQuality = dhorReadQuality;
+      const finalDhorReadNotes = dhorReadNotes;
 
-      const finalSabakReadNotes =
-        sabakReadNotes.trim() !== ""
-          ? sabakReadNotes
-          : toText(
-              existingLog.sabakReadNotes || existingUser.currentSabakReadNotes
-            );
-
-      const finalSabakDhorReadQuality =
-        sabakDhorReadQuality.trim() !== ""
-          ? sabakDhorReadQuality
-          : pickText(
-              existingLog.sabakDhorRead,
-              existingLog.sabakDhorReadQuality ||
-                existingUser.currentSabakDhorRead ||
-                existingUser.currentSabakDhorReadQuality
-            );
-
-      const finalSabakDhorReadNotes =
-        sabakDhorReadNotes.trim() !== ""
-          ? sabakDhorReadNotes
-          : toText(
-              existingLog.sabakDhorReadNotes ||
-                existingUser.currentSabakDhorReadNotes
-            );
-
-      const finalDhorReadQuality =
-        dhorReadQuality.trim() !== ""
-          ? dhorReadQuality
-          : pickText(
-              existingLog.dhorRead,
-              existingLog.dhorReadQuality ||
-                existingUser.currentDhorRead ||
-                existingUser.currentDhorReadQuality
-            );
-
-      const finalDhorReadNotes =
-        dhorReadNotes.trim() !== ""
-          ? dhorReadNotes
-          : toText(existingLog.dhorReadNotes || existingUser.currentDhorReadNotes);
-
-      const finalSabakDhorMistakes =
-        sabakDhorMistakes.trim() !== ""
-          ? sabakDhorMistakes
-          : toText(
-              existingLog.sabakDhorMistakes ||
-                existingUser.currentSabakDhorMistakes
-            );
-
-      const finalDhorMistakes =
-        dhorMistakes.trim() !== ""
-          ? dhorMistakes
-          : toText(existingLog.dhorMistakes || existingUser.currentDhorMistakes);
-
-      const isDayComplete =
-        finalSabak.trim() !== "" &&
-        finalSabakDhor.trim() !== "" &&
-        finalDhor.trim() !== "";
+      const finalSabakDhorMistakes = sabakDhorMistakes;
+      const finalDhorMistakes = dhorMistakes;
 
       let nextGoal = weeklyGoal.trim();
       let nextWeekKey = weeklyGoalWeekKey;
@@ -484,25 +406,6 @@ export default function AdminStudentPage() {
           weeklyGoalCompletedDateKey: nextCompletedKey || null,
           weeklyGoalDurationDays: nextDuration,
 
-          currentSabak: isDayComplete ? "" : finalSabak,
-          currentSabakDhor: isDayComplete ? "" : finalSabakDhor,
-          currentDhor: isDayComplete ? "" : finalDhor,
-
-          currentSabakRead: isDayComplete ? "" : finalSabakReadQuality,
-          currentSabakDhorRead: isDayComplete ? "" : finalSabakDhorReadQuality,
-          currentDhorRead: isDayComplete ? "" : finalDhorReadQuality,
-
-          currentSabakReadQuality: isDayComplete ? "" : finalSabakReadQuality,
-          currentSabakDhorReadQuality: isDayComplete ? "" : finalSabakDhorReadQuality,
-          currentDhorReadQuality: isDayComplete ? "" : finalDhorReadQuality,
-
-          currentSabakReadNotes: isDayComplete ? "" : finalSabakReadNotes,
-          currentSabakDhorReadNotes: isDayComplete ? "" : finalSabakDhorReadNotes,
-          currentDhorReadNotes: isDayComplete ? "" : finalDhorReadNotes,
-
-          currentSabakDhorMistakes: isDayComplete ? "" : finalSabakDhorMistakes,
-          currentDhorMistakes: isDayComplete ? "" : finalDhorMistakes,
-
           updatedAt: serverTimestamp(),
           lastUpdatedBy: me?.uid ?? null,
         },
@@ -532,7 +435,7 @@ export default function AdminStudentPage() {
       setWeeklyGoalCompletedDateKey(nextCompletedKey || "");
       setWeeklyGoalDurationDays(nextDuration);
 
-      setMsg(isDayComplete ? "Saved ✅ Day completed — next day will start fresh" : "Saved ✅");
+      setMsg("Saved ✅");
       setTimeout(() => setMsg(null), 2500);
 
       setMarkGoalCompleted(false);
