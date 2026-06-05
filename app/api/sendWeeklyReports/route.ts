@@ -54,6 +54,31 @@ function normalisePhone(phone?: string) {
   return cleaned;
 }
 
+
+function sabakToLines(value: unknown) {
+  const s = toText(value).toLowerCase().trim();
+  if (!s) return 0;
+
+  if (s.includes("page") || s.includes("p")) {
+    const n = parseFloat(s.replace(",", "."));
+    return isNaN(n) ? 0 : n * 13;
+  }
+
+  const n = parseFloat(s.replace(",", "."));
+  return isNaN(n) ? 0 : n;
+}
+
+function getAverageSabakLines(logs: LogDoc[]) {
+  const presentLogs = getPresentLogs(logs);
+
+  if (!presentLogs.length) return "No sabak recorded";
+
+  const totalLines = presentLogs.reduce((sum, doc) => {
+    return sum + sabakToLines(doc.data().sabak);
+  }, 0);
+
+  return `${(totalLines / presentLogs.length).toFixed(1)} lines/day`;
+}
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -98,6 +123,15 @@ function getQualityScore(quality?: string) {
   if (q.includes("poor")) return 0.5;
 
   return 2;
+}
+
+function hasNoQualityData(logs: LogDoc[], fields: string[]) {
+  return logs
+    .filter((doc) => !isAbsentDoc(doc))
+    .every((doc) => {
+      const data = doc.data();
+      return !fields.some((field) => data[field]);
+    });
 }
 
 function averageQuality(logs: LogDoc[], fields: string[]) {
@@ -147,6 +181,10 @@ function getOverallWeek(logs: LogDoc[]) {
 }
 
 function getSabakStrength(logs: LogDoc[]) {
+  if (hasNoQualityData(logs, ["sabakReadQuality", "sabakRead"])) {
+    return "No logs recorded";
+  }
+
   const avg = averageQuality(logs, ["sabakReadQuality", "sabakRead"]);
 
   if (avg >= 3.2) return "Excellent";
@@ -157,10 +195,11 @@ function getSabakStrength(logs: LogDoc[]) {
 }
 
 function getSabakDhorStrength(logs: LogDoc[]) {
-  const avg = averageQuality(logs, [
-    "sabakDhorReadQuality",
-    "sabakDhorRead",
-  ]);
+  if (hasNoQualityData(logs, ["sabakDhorReadQuality", "sabakDhorRead"])) {
+    return "No logs recorded";
+  }
+
+  const avg = averageQuality(logs, ["sabakDhorReadQuality", "sabakDhorRead"]);
 
   if (avg >= 3.2) return "Excellent";
   if (avg >= 2.7) return "Strong";
@@ -168,8 +207,11 @@ function getSabakDhorStrength(logs: LogDoc[]) {
 
   return "Needs More Attention";
 }
-
 function getDhorStrength(logs: LogDoc[]) {
+  if (hasNoQualityData(logs, ["dhorReadQuality", "dhorRead"])) {
+    return "No logs recorded";
+  }
+
   const avg = averageQuality(logs, ["dhorReadQuality", "dhorRead"]);
 
   if (avg >= 3.2) return "Excellent";
@@ -178,7 +220,6 @@ function getDhorStrength(logs: LogDoc[]) {
 
   return "Needs More Attention";
 }
-
 function compareNumber(current: number, previous: number, label: string) {
   if (!previous && current) return `✅ ${label} started strongly`;
   if (current > previous) return `✅ ${label} improved`;
@@ -214,7 +255,6 @@ function getMistakeFocus(logs: LogDoc[]) {
 
   return "";
 }
-
 function buildTeacherHighlight({
   attendance,
   goalCompleted,
@@ -232,105 +272,120 @@ function buildTeacherHighlight({
   previousLogs: LogDoc[];
   currentLogs: LogDoc[];
 }) {
-  const teacherNotes = getTeacherNotesFromLogs(currentLogs);
+  const notes = currentLogs
+    .map((doc) => toText(doc.data().generalNotes))
+    .filter(Boolean);
 
-  if (teacherNotes.length) {
-    const note = teacherNotes[0];
-    return note.length <= 120 ? note : `${note.slice(0, 120).trim()}...`;
+  const currentSabak = averageQuality(currentLogs, [
+    "sabakReadQuality",
+    "sabakRead",
+  ]);
+
+  const previousSabak = averageQuality(previousLogs, [
+    "sabakReadQuality",
+    "sabakRead",
+  ]);
+
+  const currentSabakDhor = averageQuality(currentLogs, [
+    "sabakDhorReadQuality",
+    "sabakDhorRead",
+  ]);
+
+  const previousSabakDhor = averageQuality(previousLogs, [
+    "sabakDhorReadQuality",
+    "sabakDhorRead",
+  ]);
+
+  const currentDhor = averageQuality(currentLogs, [
+    "dhorReadQuality",
+    "dhorRead",
+  ]);
+
+  const previousDhor = averageQuality(previousLogs, [
+    "dhorReadQuality",
+    "dhorRead",
+  ]);
+
+  const highlights: string[] = [];
+
+  if (notes.length) {
+    return notes[0].length > 140
+      ? notes[0].slice(0, 140).trim() + "..."
+      : notes[0];
   }
 
-  const currentSabakAvg = averageQuality(currentLogs, [
-    "sabakReadQuality",
-    "sabakRead",
-  ]);
-  const previousSabakAvg = averageQuality(previousLogs, [
-    "sabakReadQuality",
-    "sabakRead",
-  ]);
+  if (attendance === 5) {
+    highlights.push(
+      "Excellent consistency was maintained through full attendance."
+    );
+  }
 
-  const currentSabakDhorAvg = averageQuality(currentLogs, [
-    "sabakDhorReadQuality",
-    "sabakDhorRead",
-  ]);
-  const previousSabakDhorAvg = averageQuality(previousLogs, [
-    "sabakDhorReadQuality",
-    "sabakDhorRead",
-  ]);
+  if (goalCompleted) {
+    highlights.push(
+      "The weekly target was successfully completed."
+    );
+  }
 
-  const currentDhorAvg = averageQuality(currentLogs, [
-    "dhorReadQuality",
-    "dhorRead",
-  ]);
-  const previousDhorAvg = averageQuality(previousLogs, [
-    "dhorReadQuality",
-    "dhorRead",
-  ]);
+  if (currentSabak - previousSabak >= 0.5) {
+    highlights.push(
+      "A noticeable improvement was seen in new lesson preparation."
+    );
+  }
 
-  const sabakImproved =
-    previousLogs.length > 0 && currentSabakAvg > previousSabakAvg;
-  const sabakDhorImproved =
-    previousLogs.length > 0 && currentSabakDhorAvg > previousSabakDhorAvg;
-  const dhorImproved =
-    previousLogs.length > 0 && currentDhorAvg > previousDhorAvg;
+  if (currentSabakDhor - previousSabakDhor >= 0.5) {
+    highlights.push(
+      "Recent revision showed encouraging improvement."
+    );
+  }
 
-  const hasSabakDhorMistakes = currentLogs.some((doc) =>
-    toText(doc.data().sabakDhorMistakes)
-  );
-  const hasDhorMistakes = currentLogs.some((doc) =>
-    toText(doc.data().dhorMistakes)
-  );
+  if (currentDhor - previousDhor >= 0.5) {
+    highlights.push(
+      "Older revision retention strengthened compared to last week."
+    );
+  }
 
   if (
-    attendance >= 5 &&
-    goalCompleted &&
-    sabakImproved &&
-    sabakDhorImproved &&
-    dhorImproved
+    sabakStrength === "Excellent" &&
+    sabakDhorStrength === "Excellent" &&
+    dhorStrength === "Excellent"
   ) {
-    return "Excellent improvement noticed across sabak, sabak dhor and dhor revision this week.";
+    highlights.push(
+      "Strong performance was maintained across all areas of recitation."
+    );
   }
 
-  if (sabakImproved) {
-    return "A noticeable improvement was seen in sabak preparation this week.";
-  }
-
-  if (sabakDhorImproved) {
-    return "Recent revision improved noticeably this week.";
-  }
-
-  if (dhorImproved) {
-    return "Older dhor revision showed pleasing improvement this week.";
-  }
-
-  if (attendance >= 5 && goalCompleted) {
-    return "Very pleasing consistency in attendance, preparation and weekly goal completion.";
-  }
-
-  if (sabakStrength === "Excellent" || sabakStrength === "Strong") {
-    return "Sabak preparation was a pleasing area this week.";
-  }
-
-  if (sabakDhorStrength === "Excellent" || sabakDhorStrength === "Strong") {
-    return "Sabak dhor was firm and pleasing this week.";
-  }
-
-  if (dhorStrength === "Excellent" || dhorStrength === "Strong") {
-    return "Older dhor revision was a strong point this week.";
+  if (
+    attendance === 5 &&
+    !goalCompleted &&
+    highlights.length < 2
+  ) {
+    highlights.push(
+      "Commendable effort was shown throughout the week despite some remaining challenges."
+    );
   }
 
   if (attendance <= 2) {
-    return "A stronger attendance routine will help progress improve further.";
+    highlights.push(
+      "Improved attendance will significantly assist future progress."
+    );
   }
 
-  if (hasDhorMistakes) {
-    return "Extra attention to older dhor revision will help strengthen retention.";
+  if (
+    sabakStrength === "Can Improve" &&
+    sabakDhorStrength === "Needs More Attention"
+  ) {
+    highlights.push(
+      "Greater consistency in preparation and recent revision remains a priority."
+    );
   }
 
-  if (hasSabakDhorMistakes) {
-    return "Recent revision needs a little more strengthening and consistency.";
+  if (!highlights.length) {
+    highlights.push(
+      "Steady progress was observed throughout the week."
+    );
   }
 
-  return "Steady effort was shown this week, with room to build further.";
+  return highlights.slice(0, 2).join(" ");
 }
 
 function buildAutoReflection({
@@ -470,6 +525,58 @@ function buildWhatWentWell({
   return points;
 }
 
+
+const attendanceFocus = [
+  "Aim to attend every class to maintain momentum.",
+  "Consistency in attendance should be the main focus next week.",
+  "Regular attendance will greatly improve overall progress.",
+  "Establishing a stronger routine will help build confidence.",
+  "Making every lesson count should be a priority."
+];
+
+const goalFocus = [
+  "Break the weekly target into smaller daily goals.",
+  "Earlier preparation should help achieve next week's target.",
+  "Focus on completing daily tasks consistently.",
+  "A stronger revision schedule will support goal completion.",
+  "Improving preparation outside class should help achieve targets."
+];
+
+const sabakFocus = [
+  "Listen to the new lesson more frequently before class.",
+  "Increase fluency before presenting the new lesson.",
+  "Reduce hesitation by revising the lesson multiple times.",
+  "Focus on smoother recitation during sabak.",
+  "Spend extra time strengthening new lesson preparation."
+];
+
+const sabakDhorFocus = [
+  "Increase revision of recently memorised portions.",
+  "Dedicate additional time to sabak dhor revision.",
+  "Focus on retaining newer memorisation more confidently.",
+  "Review recent lessons consistently throughout the week.",
+  "Strengthen recall of recently completed portions."
+];
+
+const dhorFocus = [
+  "Allocate extra time to older revision.",
+  "Strengthen retention of older portions through repetition.",
+  "Review older surahs more consistently.",
+  "Focus on maintaining long-term retention.",
+  "Spend additional time on weaker older portions."
+];
+
+const excellenceFocus = [
+  "Maintain the excellent standards achieved this week.",
+  "Continue the strong routine that produced these results.",
+  "Build on this week's momentum and consistency.",
+  "Aim to sustain the quality demonstrated this week.",
+  "Continue striving for excellence across all areas."
+];
+
+function randomItem(items: string[]) {
+  return items[Math.floor(Math.random() * items.length)];
+}
 function buildFocusForNextWeek({
   attendance,
   goalCompleted,
@@ -485,17 +592,32 @@ function buildFocusForNextWeek({
 }) {
   const points: string[] = [];
 
-  if (attendance <= 3) points.push("Work towards stronger attendance and routine.");
-  if (!goalCompleted) points.push("Prepare earlier so the weekly goal can be completed.");
-  if (sabakStrength === "Can Improve") points.push("Strengthen sabak preparation before class.");
-  if (sabakDhorStrength === "Needs More Attention") points.push("Give extra attention to sabak dhor.");
-  if (dhorStrength === "Needs More Attention") points.push("Give extra attention to older dhor revision.");
-
-  if (!points.length) {
-    points.push("Continue daily revision so the progress remains firm.");
+  if (attendance <= 3) {
+    points.push(randomItem(attendanceFocus));
   }
 
-  return points;
+  if (!goalCompleted) {
+    points.push(randomItem(goalFocus));
+  }
+
+  if (sabakStrength === "Can Improve") {
+    points.push(randomItem(sabakFocus));
+  }
+
+  if (sabakDhorStrength === "Needs More Attention") {
+    points.push(randomItem(sabakDhorFocus));
+  }
+
+  if (dhorStrength === "Needs More Attention") {
+    points.push(randomItem(dhorFocus));
+  }
+
+  if (!points.length) {
+    points.push(randomItem(excellenceFocus));
+    points.push(randomItem(excellenceFocus));
+  }
+
+  return [...new Set(points)].slice(0, 3);
 }
 
 function buildDailyBreakdown(logDoc: LogDoc) {
@@ -695,6 +817,7 @@ export async function GET() {
 
       const overallWeek = getOverallWeek(currentWeekLogs);
       const sabakStrength = getSabakStrength(currentWeekLogs);
+      const averageSabak = getAverageSabakLines(currentWeekLogs);
       const sabakDhorStrength = getSabakDhorStrength(currentWeekLogs);
       const dhorStrength = getDhorStrength(currentWeekLogs);
 
@@ -787,6 +910,7 @@ ${teacherHighlight}
 🎯 *Weekly Goal:* ${weeklyGoal}
 ✅ *Goal Status:* ${goalStatus}
 📖 *Sabak:* ${sabakStrength}
+📊 *Average Sabak:* ${averageSabak}
 🔁 *Sabak Dhor:* ${sabakDhorStrength}
 📚 *Dhor Revision:* ${dhorStrength}
 
@@ -798,11 +922,6 @@ ${weeklyReflection}
 
 ━━━━━━━━━━━━━━━━━━
 
-✅ *What Went Well*
-
-${whatWentWell.map((point) => `• ${point}`).join("\n")}
-
-━━━━━━━━━━━━━━━━━━
 
 🎯 *Focus For Next Week*
 
