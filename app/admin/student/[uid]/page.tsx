@@ -146,6 +146,12 @@ export default function AdminStudentPage() {
 
   const [attendance, setAttendance] = useState<"present" | "absent">("present");
 
+  const [arrivedLate, setArrivedLate] = useState(false);
+  const [arrivalTime, setArrivalTime] = useState("");
+
+  const [leftEarly, setLeftEarly] = useState(false);
+  const [leaveTime, setLeaveTime] = useState("");
+
   const [me, setMe] = useState<User | null>(null);
   const [checking, setChecking] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -256,6 +262,12 @@ export default function AdminStudentPage() {
 
         setAttendance(log.attendance === "absent" ? "absent" : "present");
 
+        setArrivedLate(Boolean(log.arrivedLate));
+        setArrivalTime(toText(log.arrivalTime));
+
+        setLeftEarly(Boolean(log.leftEarly));
+        setLeaveTime(toText(log.leaveTime));
+
         setSabak(toText(log.sabak));
         setSabakDhor(toText(log.sabakDhor));
         setDhor(toText(log.dhor));
@@ -275,6 +287,12 @@ export default function AdminStudentPage() {
         setDhorMistakes(toText(log.dhorMistakes));
       } else {
         setAttendance("present");
+
+        setArrivedLate(false);
+        setArrivalTime("");
+
+        setLeftEarly(false);
+        setLeaveTime("");
 
         setSabak("");
         setSabakDhor("");
@@ -315,6 +333,12 @@ export default function AdminStudentPage() {
         : {};
 
       const finalAttendance = attendance || "present";
+
+      const finalArrivedLate = attendance === "present" ? arrivedLate : false;
+      const finalArrivalTime = finalArrivedLate ? arrivalTime : "";
+
+      const finalLeftEarly = attendance === "present" ? leftEarly : false;
+      const finalLeaveTime = finalLeftEarly ? leaveTime : "";
 
       const finalSabak = sabak;
       const finalSabakDhor = sabakDhor;
@@ -365,6 +389,12 @@ export default function AdminStudentPage() {
 
           attendance: finalAttendance,
 
+          arrivedLate: finalArrivedLate,
+          arrivalTime: finalArrivalTime,
+
+          leftEarly: finalLeftEarly,
+          leaveTime: finalLeaveTime,
+
           sabak: finalSabak,
           sabakDhor: finalSabakDhor,
           dhor: finalDhor,
@@ -413,6 +443,13 @@ export default function AdminStudentPage() {
       );
 
       setAttendance(finalAttendance);
+
+      setArrivedLate(finalArrivedLate);
+      setArrivalTime(finalArrivalTime);
+
+      setLeftEarly(finalLeftEarly);
+      setLeaveTime(finalLeaveTime);
+
       setSabak(finalSabak);
       setSabakDhor(finalSabakDhor);
       setDhor(finalDhor);
@@ -563,6 +600,60 @@ export default function AdminStudentPage() {
                 Absent
               </button>
             </div>
+
+            {attendance === "present" ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-gray-300 bg-white/70 px-4 py-3">
+                  <label className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-gray-900">
+                      Arrived Late
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={arrivedLate}
+                      onChange={(e) => {
+                        setArrivedLate(e.target.checked);
+                        if (!e.target.checked) setArrivalTime("");
+                      }}
+                      className="h-5 w-5 accent-black"
+                    />
+                  </label>
+                  {arrivedLate ? (
+                    <input
+                      type="time"
+                      value={arrivalTime}
+                      onChange={(e) => setArrivalTime(e.target.value)}
+                      className="mt-3 h-11 w-full rounded-xl border border-gray-300 bg-white/80 px-3 outline-none focus:ring-2 focus:ring-[#B8963D]/30"
+                    />
+                  ) : null}
+                </div>
+
+                <div className="rounded-2xl border border-gray-300 bg-white/70 px-4 py-3">
+                  <label className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-gray-900">
+                      Left Early
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={leftEarly}
+                      onChange={(e) => {
+                        setLeftEarly(e.target.checked);
+                        if (!e.target.checked) setLeaveTime("");
+                      }}
+                      className="h-5 w-5 accent-black"
+                    />
+                  </label>
+                  {leftEarly ? (
+                    <input
+                      type="time"
+                      value={leaveTime}
+                      onChange={(e) => setLeaveTime(e.target.value)}
+                      className="mt-3 h-11 w-full rounded-xl border border-gray-300 bg-white/80 px-3 outline-none focus:ring-2 focus:ring-[#B8963D]/30"
+                    />
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="rounded-3xl border border-gray-300 bg-white/70 backdrop-blur-xl p-5 sm:p-6">
