@@ -82,6 +82,12 @@ type LogRow = {
 
   attendance?: string;
 
+  arrivedLate?: boolean;
+  arrivalTime?: string;
+
+  leftEarly?: boolean;
+  leaveTime?: string;
+
   sabak?: string;
   sabakRead?: string;
   sabakReadNotes?: string;
@@ -496,7 +502,19 @@ const currentMonthAbsents = absentsByMonth[currentMonth] || 0;
 
                             <td className="py-4 px-4 border-l border-gray-100">
                             {r.attendance === "present" ? (
-                              <span className="text-emerald-600 font-semibold">Present</span>
+                              <div className="flex flex-col gap-1">
+                                <span className="text-emerald-600 font-semibold">Present</span>
+                                {r.arrivedLate ? (
+                                  <span className="inline-flex w-fit items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                                    Late{r.arrivalTime ? ` · ${r.arrivalTime}` : ""}
+                                  </span>
+                                ) : null}
+                                {r.leftEarly ? (
+                                  <span className="inline-flex w-fit items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
+                                    Left early{r.leaveTime ? ` · ${r.leaveTime}` : ""}
+                                  </span>
+                                ) : null}
+                              </div>
                             ) : r.attendance === "absent" ? (
                               <span className="text-red-600 font-semibold">Absent</span>
                             ) : (
