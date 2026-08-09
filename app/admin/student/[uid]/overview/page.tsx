@@ -76,11 +76,18 @@ function sabakToLines(v: unknown) {
   return isNaN(n) ? 0 : n;
 }
 
+type SessionAttendance = "present" | "absent";
+
 type LogRow = {
   id: string;
   dateKey?: string;
 
   attendance?: string;
+
+  // Per-session attendance (new). Falls back to the legacy single
+  // "attendance" field for logs saved before the morning/afternoon split.
+  morningAttendance?: string;
+  afternoonAttendance?: string;
 
   arrivedLate?: boolean;
   arrivalTime?: string;
@@ -109,6 +116,40 @@ type LogRow = {
   weeklyGoalCompletedDateKey?: string;
   weeklyGoalDurationDays?: number | string;
 };
+
+/* Resolve morning/afternoon attendance for a row, with fallback to the
+   legacy single "attendance" field for older logs. */
+function getMorningAttendance(r: LogRow): SessionAttendance {
+  if (r.morningAttendance === "present" || r.morningAttendance === "absent") {
+    return r.morningAttendance;
+  }
+  return r.attendance === "absent" ? "absent" : "present";
+}
+
+function getAfternoonAttendance(r: LogRow): SessionAttendance {
+  if (r.afternoonAttendance === "present" || r.afternoonAttendance === "absent") {
+    return r.afternoonAttendance;
+  }
+  return r.attendance === "absent" ? "absent" : "present";
+}
+
+/* A day only counts as a full absence if BOTH sessions were missed. */
+function isFullyAbsent(r: LogRow) {
+  return getMorningAttendance(r) === "absent" && getAfternoonAttendance(r) === "absent";
+}
+
+/* A day counts as partial if exactly one session was missed. */
+function isPartialAbsent(r: LogRow) {
+  const m = getMorningAttendance(r) === "absent";
+  const a = getAfternoonAttendance(r) === "absent";
+  return m !== a;
+}
+
+/* For sabak averages: count the day if the student was present for at
+   least one session (so a partial day's sabak still gets counted). */
+function wasPresentAtAll(r: LogRow) {
+  return getMorningAttendance(r) === "present" || getAfternoonAttendance(r) === "present";
+}
 
 async function fetchLogs(uid: string): Promise<LogRow[]> {
   const q = query(collection(db, "users", uid, "logs"), orderBy("dateKey", "desc"));
@@ -186,24 +227,39 @@ setStudentName(
   }, [studentUid]);
 
   const absentsByMonth = useMemo(() => {
-    
-  const map: Record<string, number> = {};
+    const map: Record<string, number> = {};
 
-  rows.forEach((r) => {
-    if (r.attendance !== "absent") return;
+    rows.forEach((r) => {
+      if (!isFullyAbsent(r)) return;
 
-    const month = getMonthLabel(r.dateKey);
-    if (!month) return;
+      const month = getMonthLabel(r.dateKey);
+      if (!month) return;
 
-    map[month] = (map[month] || 0) + 1;
-  });
+      map[month] = (map[month] || 0) + 1;
+    });
 
-  return map;
-}, [rows]);
+    return map;
+  }, [rows]);
+
+  const partialsByMonth = useMemo(() => {
+    const map: Record<string, number> = {};
+
+    rows.forEach((r) => {
+      if (!isPartialAbsent(r)) return;
+
+      const month = getMonthLabel(r.dateKey);
+      if (!month) return;
+
+      map[month] = (map[month] || 0) + 1;
+    });
+
+    return map;
+  }, [rows]);
 
 const currentMonth = getMonthLabel(new Date().toISOString().slice(0, 10));
 
 const currentMonthAbsents = absentsByMonth[currentMonth] || 0;
+const currentMonthPartials = partialsByMonth[currentMonth] || 0;
 
   const summary = useMemo(() => {
   if (!rows.length) return { totalDays: 0, avgSabakLines: 0, avgPresentLines: 0, lastGoal: 0 };
@@ -213,8 +269,8 @@ const currentMonthAbsents = absentsByMonth[currentMonth] || 0;
 
   const avgSabakLines = totalLines / rows.length;
 
-  // Only present days
-  const presentRows = rows.filter((r) => r.attendance === "present");
+  // Days where the student was present for at least one session
+  const presentRows = rows.filter((r) => wasPresentAtAll(r));
  const totalPresentLines = presentRows.reduce((sum, r) => sum + sabakToLines(r.sabak), 0);
   const avgPresentLines = presentRows.length ? totalPresentLines / presentRows.length : 0;
 
@@ -330,9 +386,14 @@ const currentMonthAbsents = absentsByMonth[currentMonth] || 0;
         {/* Summary cards */}
         <div className="grid sm:grid-cols-4 gap-4 mb-8">
           <StatCard label="Days logged" value={String(summary.totalDays)} />
-                    <StatCard
-            label="Absences (this month)"
+          <StatCard
+            label="Full absences (this month)"
             value={String(currentMonthAbsents)}
+            sub={
+              currentMonthPartials > 0
+                ? `+${currentMonthPartials} partial (1 session missed)`
+                : undefined
+            }
           />
 <StatCard
   label="Average Sabak"
@@ -350,7 +411,8 @@ const currentMonthAbsents = absentsByMonth[currentMonth] || 0;
               key={month}
               className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700"
             >
-              {month}: {count} absent day(s)
+              {month}: {count} full absent day(s)
+              {partialsByMonth[month] ? ` · ${partialsByMonth[month]} partial` : ""}
             </div>
           ))}
         </div>
@@ -397,7 +459,10 @@ const currentMonthAbsents = absentsByMonth[currentMonth] || 0;
                         Date
                       </th>
                        <th className="sticky top-0 bg-white/70 backdrop-blur-xl backdrop-blur pb-3 pr-4 pl-2 border-b border-gray-300">
-                        Attendance
+                        Morning
+                      </th>
+                      <th className="sticky top-0 bg-white/70 backdrop-blur-xl backdrop-blur pb-3 pr-4 pl-2 border-b border-gray-300">
+                        Afternoon
                       </th>
 
                       <th className="sticky top-0 bg-white/70 backdrop-blur-xl backdrop-blur pb-3 px-4 border-b border-gray-300 border-l border-gray-100">
@@ -479,12 +544,15 @@ const currentMonthAbsents = absentsByMonth[currentMonth] || 0;
 
                     const completed = Boolean(completedKey);
 
+                      const morning = getMorningAttendance(r);
+                      const afternoon = getAfternoonAttendance(r);
+
                       return (
                           <>
                       {showMonthHeader && (
                       <tr>
                       <td
-                         colSpan={16}
+                         colSpan={17}
                          className="bg-gradient-to-r from-[#B8963D]/15 to-transparent text-sm font-semibold text-gray-900 py-4 px-4 uppercase tracking-wider"
                         >
                        {currentMonth}
@@ -500,8 +568,8 @@ const currentMonthAbsents = absentsByMonth[currentMonth] || 0;
                             {r.dateKey ?? r.id}
                           </td>
 
-                            <td className="py-4 px-4 border-l border-gray-100">
-                            {r.attendance === "present" ? (
+                            <td className="py-4 pr-4 pl-2">
+                            {morning === "present" ? (
                               <div className="flex flex-col gap-1">
                                 <span className="text-emerald-600 font-semibold">Present</span>
                                 {r.arrivedLate ? (
@@ -509,16 +577,24 @@ const currentMonthAbsents = absentsByMonth[currentMonth] || 0;
                                     Late{r.arrivalTime ? ` · ${r.arrivalTime}` : ""}
                                   </span>
                                 ) : null}
+                              </div>
+                            ) : (
+                              <span className="text-red-600 font-semibold">Absent</span>
+                            )}
+                          </td>
+
+                            <td className="py-4 pr-4 pl-2">
+                            {afternoon === "present" ? (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-emerald-600 font-semibold">Present</span>
                                 {r.leftEarly ? (
                                   <span className="inline-flex w-fit items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
                                     Left early{r.leaveTime ? ` · ${r.leaveTime}` : ""}
                                   </span>
                                 ) : null}
                               </div>
-                            ) : r.attendance === "absent" ? (
-                              <span className="text-red-600 font-semibold">Absent</span>
                             ) : (
-                              "—"
+                              <span className="text-red-600 font-semibold">Absent</span>
                             )}
                           </td>
 
@@ -613,13 +689,14 @@ const currentMonthAbsents = absentsByMonth[currentMonth] || 0;
 }
 
 /* ---------------- UI bits ---------------- */
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="group relative overflow-hidden rounded-3xl border border-gray-300 bg-white/70 backdrop-blur p-6 shadow-sm hover:shadow-lg transition-all duration-300">
       <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-[#B8963D] via-[#B8963D]/60 to-transparent" />
       <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#B8963D]/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       <div className="text-xs uppercase tracking-widest text-gray-500">{label}</div>
       <div className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">{value}</div>
+      {sub ? <div className="mt-1 text-xs text-gray-500">{sub}</div> : null}
     </div>
   );
 }
