@@ -68,6 +68,8 @@ function pickText(primary: unknown, fallback: unknown) {
   return toText(fallback);
 }
 
+type SessionAttendance = "present" | "absent";
+
 /** -------------------- UI shell -------------------- */
 function Shell({
   title,
@@ -144,11 +146,17 @@ export default function AdminStudentPage() {
   const params = useParams<{ uid: string }>();
   const studentUid = params.uid;
 
-  const [attendance, setAttendance] = useState<"present" | "absent">("present");
+  // Two separate class sessions per day: morning class + afternoon class.
+  const [morningAttendance, setMorningAttendance] =
+    useState<SessionAttendance>("present");
+  const [afternoonAttendance, setAfternoonAttendance] =
+    useState<SessionAttendance>("present");
 
+  // Arrived late applies to the morning class (first class of the day).
   const [arrivedLate, setArrivedLate] = useState(false);
   const [arrivalTime, setArrivalTime] = useState("");
 
+  // Left early applies to the afternoon class (last class of the day).
   const [leftEarly, setLeftEarly] = useState(false);
   const [leaveTime, setLeaveTime] = useState("");
 
@@ -260,7 +268,25 @@ export default function AdminStudentPage() {
       if (logDoc.exists()) {
         const log = logDoc.data() as any;
 
-        setAttendance(log.attendance === "absent" ? "absent" : "present");
+        // Prefer the new per-session fields. Fall back to the old single
+        // "attendance" field for logs saved before this change existed.
+        const hasSessionFields =
+          typeof log.morningAttendance === "string" ||
+          typeof log.afternoonAttendance === "string";
+
+        if (hasSessionFields) {
+          setMorningAttendance(
+            log.morningAttendance === "absent" ? "absent" : "present"
+          );
+          setAfternoonAttendance(
+            log.afternoonAttendance === "absent" ? "absent" : "present"
+          );
+        } else {
+          const legacy: SessionAttendance =
+            log.attendance === "absent" ? "absent" : "present";
+          setMorningAttendance(legacy);
+          setAfternoonAttendance(legacy);
+        }
 
         setArrivedLate(Boolean(log.arrivedLate));
         setArrivalTime(toText(log.arrivalTime));
@@ -286,7 +312,8 @@ export default function AdminStudentPage() {
         setSabakDhorMistakes(toText(log.sabakDhorMistakes));
         setDhorMistakes(toText(log.dhorMistakes));
       } else {
-        setAttendance("present");
+        setMorningAttendance("present");
+        setAfternoonAttendance("present");
 
         setArrivedLate(false);
         setArrivalTime("");
@@ -332,12 +359,24 @@ export default function AdminStudentPage() {
         ? (existingLogSnap.data() as any)
         : {};
 
-      const finalAttendance = attendance || "present";
+      const finalMorningAttendance: SessionAttendance = morningAttendance || "present";
+      const finalAfternoonAttendance: SessionAttendance = afternoonAttendance || "present";
 
-      const finalArrivedLate = attendance === "present" ? arrivedLate : false;
+      // Legacy single-field summary, kept so anything still reading
+      // "attendance" (e.g. an older overview view) doesn't break outright.
+      const finalAttendance: "present" | "absent" | "partial" =
+        finalMorningAttendance === "present" && finalAfternoonAttendance === "present"
+          ? "present"
+          : finalMorningAttendance === "absent" && finalAfternoonAttendance === "absent"
+          ? "absent"
+          : "partial";
+
+      const finalArrivedLate =
+        finalMorningAttendance === "present" ? arrivedLate : false;
       const finalArrivalTime = finalArrivedLate ? arrivalTime : "";
 
-      const finalLeftEarly = attendance === "present" ? leftEarly : false;
+      const finalLeftEarly =
+        finalAfternoonAttendance === "present" ? leftEarly : false;
       const finalLeaveTime = finalLeftEarly ? leaveTime : "";
 
       const finalSabak = sabak;
@@ -387,6 +426,8 @@ export default function AdminStudentPage() {
           dateKey,
           createdAt: existingLog.createdAt ?? serverTimestamp(),
 
+          morningAttendance: finalMorningAttendance,
+          afternoonAttendance: finalAfternoonAttendance,
           attendance: finalAttendance,
 
           arrivedLate: finalArrivedLate,
@@ -442,7 +483,8 @@ export default function AdminStudentPage() {
         { merge: true }
       );
 
-      setAttendance(finalAttendance);
+      setMorningAttendance(finalMorningAttendance);
+      setAfternoonAttendance(finalAfternoonAttendance);
 
       setArrivedLate(finalArrivedLate);
       setArrivalTime(finalArrivalTime);
@@ -575,85 +617,135 @@ export default function AdminStudentPage() {
           <div className="rounded-3xl border border-gray-300 bg-white/70 backdrop-blur-xl p-5 sm:p-6">
             <div className="text-sm font-semibold text-gray-900">Attendance</div>
 
-            <div className="mt-4 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setAttendance("present")}
-                className={`px-4 py-2 rounded-xl border ${
-                  attendance === "present"
-                    ? "bg-emerald-100 border-emerald-400 text-emerald-700"
-                    : "bg-white border-gray-300"
-                }`}
-              >
-                Present
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAttendance("absent")}
-                className={`px-4 py-2 rounded-xl border ${
-                  attendance === "absent"
-                    ? "bg-red-100 border-red-400 text-red-700"
-                    : "bg-white border-gray-300"
-                }`}
-              >
-                Absent
-              </button>
-            </div>
-
-            {attendance === "present" ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-gray-300 bg-white/70 px-4 py-3">
-                  <label className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold text-gray-900">
-                      Arrived Late
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={arrivedLate}
-                      onChange={(e) => {
-                        setArrivedLate(e.target.checked);
-                        if (!e.target.checked) setArrivalTime("");
-                      }}
-                      className="h-5 w-5 accent-black"
-                    />
-                  </label>
-                  {arrivedLate ? (
-                    <input
-                      type="time"
-                      value={arrivalTime}
-                      onChange={(e) => setArrivalTime(e.target.value)}
-                      className="mt-3 h-11 w-full rounded-xl border border-gray-300 bg-white/80 px-3 outline-none focus:ring-2 focus:ring-[#B8963D]/30"
-                    />
-                  ) : null}
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {/* Morning class */}
+              <div className="rounded-2xl border border-gray-300 bg-white/70 px-4 py-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Morning Class
                 </div>
 
-                <div className="rounded-2xl border border-gray-300 bg-white/70 px-4 py-3">
-                  <label className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold text-gray-900">
-                      Left Early
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={leftEarly}
-                      onChange={(e) => {
-                        setLeftEarly(e.target.checked);
-                        if (!e.target.checked) setLeaveTime("");
-                      }}
-                      className="h-5 w-5 accent-black"
-                    />
-                  </label>
-                  {leftEarly ? (
-                    <input
-                      type="time"
-                      value={leaveTime}
-                      onChange={(e) => setLeaveTime(e.target.value)}
-                      className="mt-3 h-11 w-full rounded-xl border border-gray-300 bg-white/80 px-3 outline-none focus:ring-2 focus:ring-[#B8963D]/30"
-                    />
-                  ) : null}
+                <div className="mt-3 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMorningAttendance("present")}
+                    className={`px-4 py-2 rounded-xl border text-sm font-semibold ${
+                      morningAttendance === "present"
+                        ? "bg-emerald-100 border-emerald-400 text-emerald-700"
+                        : "bg-white border-gray-300"
+                    }`}
+                  >
+                    Present
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMorningAttendance("absent");
+                      setArrivedLate(false);
+                      setArrivalTime("");
+                    }}
+                    className={`px-4 py-2 rounded-xl border text-sm font-semibold ${
+                      morningAttendance === "absent"
+                        ? "bg-red-100 border-red-400 text-red-700"
+                        : "bg-white border-gray-300"
+                    }`}
+                  >
+                    Absent
+                  </button>
                 </div>
+
+                {morningAttendance === "present" ? (
+                  <div className="mt-4">
+                    <label className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-gray-900">
+                        Arrived Late
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={arrivedLate}
+                        onChange={(e) => {
+                          setArrivedLate(e.target.checked);
+                          if (!e.target.checked) setArrivalTime("");
+                        }}
+                        className="h-5 w-5 accent-black"
+                      />
+                    </label>
+                    {arrivedLate ? (
+                      <input
+                        type="time"
+                        value={arrivalTime}
+                        onChange={(e) => setArrivalTime(e.target.value)}
+                        className="mt-3 h-11 w-full rounded-xl border border-gray-300 bg-white/80 px-3 outline-none focus:ring-2 focus:ring-[#B8963D]/30"
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
-            ) : null}
+
+              {/* Afternoon class */}
+              <div className="rounded-2xl border border-gray-300 bg-white/70 px-4 py-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Afternoon Class
+                </div>
+
+                <div className="mt-3 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAfternoonAttendance("present")}
+                    className={`px-4 py-2 rounded-xl border text-sm font-semibold ${
+                      afternoonAttendance === "present"
+                        ? "bg-emerald-100 border-emerald-400 text-emerald-700"
+                        : "bg-white border-gray-300"
+                    }`}
+                  >
+                    Present
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAfternoonAttendance("absent");
+                      setLeftEarly(false);
+                      setLeaveTime("");
+                    }}
+                    className={`px-4 py-2 rounded-xl border text-sm font-semibold ${
+                      afternoonAttendance === "absent"
+                        ? "bg-red-100 border-red-400 text-red-700"
+                        : "bg-white border-gray-300"
+                    }`}
+                  >
+                    Absent
+                  </button>
+                </div>
+
+                {afternoonAttendance === "present" ? (
+                  <div className="mt-4">
+                    <label className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-gray-900">
+                        Left Early
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={leftEarly}
+                        onChange={(e) => {
+                          setLeftEarly(e.target.checked);
+                          if (!e.target.checked) setLeaveTime("");
+                        }}
+                        className="h-5 w-5 accent-black"
+                      />
+                    </label>
+                    {leftEarly ? (
+                      <input
+                        type="time"
+                        value={leaveTime}
+                        onChange={(e) => setLeaveTime(e.target.value)}
+                        className="mt-3 h-11 w-full rounded-xl border border-gray-300 bg-white/80 px-3 outline-none focus:ring-2 focus:ring-[#B8963D]/30"
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
 
           <div className="rounded-3xl border border-gray-300 bg-white/70 backdrop-blur-xl p-5 sm:p-6">
